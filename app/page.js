@@ -2,18 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { T, LANGS, makeFmt } from "../lib/i18n";
-import { recommendAccounts, recommendKeywords } from "../lib/recommend";
-
-const DEFAULT_ACCOUNTS = {
-  reels: ["openai", "runwayapp", "pika_labs", "lumalabsai", "midjourney",
-    "klingai_official", "heygen_official", "higgsfield.ai", "googledeepmind"],
-  x: ["OpenAI", "runwayml", "Kling_ai", "GoogleDeepMind", "midjourney",
-    "LumaLabsAI", "pika_labs", "heygen_com", "elevenlabsio", "AIatMeta"],
-  threads: ["openai", "runway", "google", "meta.ai", "zuck"],
-  tiktok: ["openai", "runwayapp", "krea.ai", "elevenlabs", "sora",
-    "zachking", "khaby.lame", "google"],
-};
-const DEFAULT_XHS = ["OpenAI", "Runway", "可灵KLING", "即梦AI", "MiniMax", "通义万相", "海螺AI", "剪映"];
+import { recommendAccounts, recommendKeywords, recommendXhsKeywords } from "../lib/recommend";
+import { LANG_DEFAULT_ACCOUNTS, XHS_DEFAULTS } from "../lib/defaults";
 
 const CATEGORY_IDS = ["all", "foryou", "ai", "food", "beauty", "vlog", "fun", "movie", "tech", "edu", "travel", "animal"];
 
@@ -152,9 +142,20 @@ export default function Home() {
   const [updated, setUpdated] = useState(null);
   const [modal, setModal] = useState(null); // {id, vertical}
 
-  const [accounts, setAccounts] = useState(DEFAULT_ACCOUNTS);
-  const [xhsAccounts, setXhsAccounts] = useState(DEFAULT_XHS);
+  // 사용자가 직접 수정한 플랫폼만 저장 — 나머지는 언어별 인기인 디폴트를 따른다
+  const [customAccounts, setCustomAccounts] = useState({});
+  const [xhsAccounts, setXhsAccounts] = useState(XHS_DEFAULTS);
   const [recentSearches, setRecentSearches] = useState([]);
+
+  const accounts = useMemo(() => {
+    const base = LANG_DEFAULT_ACCOUNTS[lang] || LANG_DEFAULT_ACCOUNTS.ko;
+    return {
+      reels: customAccounts.reels || base.reels,
+      x: customAccounts.x || base.x,
+      threads: customAccounts.threads || base.threads,
+      tiktok: customAccounts.tiktok || base.tiktok,
+    };
+  }, [customAccounts, lang]);
 
   // 탭별 데이터/상태
   const [vid, setVid] = useState({ data: [], status: "loading", hasLikes: false, sort: "views" });
@@ -178,8 +179,8 @@ export default function Home() {
       const nav = (navigator.language || "ko").slice(0, 2);
       if (T[nav]) setLang(nav);
     }
-    setAccounts({ ...DEFAULT_ACCOUNTS, ...ls.get("tv_accounts", {}) });
-    setXhsAccounts(ls.get("tv_xhs", DEFAULT_XHS));
+    setCustomAccounts(ls.get("tv_accounts2", {}));
+    setXhsAccounts(ls.get("tv_xhs2", XHS_DEFAULTS));
     setRecentSearches(ls.get("tv_searches", []));
   }, []);
 
@@ -361,8 +362,8 @@ export default function Home() {
   };
 
   const updateAccounts = (platform, action, name) => {
-    setAccounts((prev) => {
-      const list = prev[platform] || [];
+    setCustomAccounts((prev) => {
+      const list = prev[platform] || accounts[platform] || [];
       let next;
       if (action === "add") {
         const key = platform === "x" ? name : name.toLowerCase();
@@ -371,7 +372,7 @@ export default function Home() {
         next = list.filter((a) => a !== name);
       }
       const merged = { ...prev, [platform]: next };
-      ls.set("tv_accounts", merged);
+      ls.set("tv_accounts2", merged);
       return merged;
     });
   };
@@ -381,7 +382,7 @@ export default function Home() {
       const next = action === "add"
         ? (prev.includes(name) ? prev : [...prev, name])
         : prev.filter((a) => a !== name);
-      ls.set("tv_xhs", next);
+      ls.set("tv_xhs2", next);
       return next;
     });
   };
@@ -797,6 +798,18 @@ export default function Home() {
         {tab === "xhs" && (
           <div className="ext-section">
             <p className="note">{t.xhsNote}</p>
+            <h2>{t.xhsKeywords}</h2>
+            <p className="note" style={{ marginBottom: 10 }}>{t.xhsKeywordsNote}</p>
+            <div className="linkgrid" style={{ marginBottom: 26 }}>
+              {recommendXhsKeywords(lang, recentSearches, accounts).map((k, i) => (
+                <a className="linkcard" key={i}
+                  href={"https://www.xiaohongshu.com/search_result?keyword=" + encodeURIComponent(k.query)}
+                  target="_blank" rel="noopener noreferrer">
+                  ✨ {k.label}
+                  <small>{k.query !== k.label ? k.query : t.openIn("小红书")}</small>
+                </a>
+              ))}
+            </div>
             <h2>{t.xhsHot}</h2>
             {xhs.status === "loading" && <div className="status">{t.loading}</div>}
             {(xhs.status === "error" || xhs.status === "empty") && (

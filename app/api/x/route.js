@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getXPosts, DEFAULT_X_ACCOUNTS } from "../../../lib/trend";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 export async function GET(req) {
   const sp = req.nextUrl.searchParams;
