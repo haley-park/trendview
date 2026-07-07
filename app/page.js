@@ -5,7 +5,7 @@ import { T, LANGS, makeFmt } from "../lib/i18n";
 import { recommendAccounts, recommendKeywords, recommendXhsKeywords } from "../lib/recommend";
 import { LANG_DEFAULT_ACCOUNTS, XHS_DEFAULTS } from "../lib/defaults";
 
-const CATEGORY_IDS = ["all", "foryou", "ai", "food", "beauty", "vlog", "fun", "movie", "tech", "edu", "travel", "animal"];
+const CATEGORY_IDS = ["all", "foryou", "ai", "food", "beauty", "vlog", "fun", "movie", "tech", "edu", "travel", "china", "expat", "animal"];
 
 const ls = {
   get(key, fallback) {
