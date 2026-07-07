@@ -661,7 +661,20 @@ export default function Home() {
             </div>
             {xp.status === "loading" && <div className="status">{t.loadingSlow}</div>}
             {xp.status === "error" && <div className="status">{t.loadFailed}</div>}
-            {xp.status === "empty" && <div className="status">{t.xEmpty}</div>}
+            {xp.status === "empty" && (
+              <>
+                <p className="note">{t.xEmpty}</p>
+                <div className="linkgrid">
+                  {accounts.x.map((name) => (
+                    <a className="linkcard" key={name}
+                      href={"https://x.com/" + name}
+                      target="_blank" rel="noopener noreferrer">
+                      𝕏 @{name}<small>{t.openIn("X")}</small>
+                    </a>
+                  ))}
+                </div>
+              </>
+            )}
             <div className="postlist">
               {sortedX.map((p, i) => (
                 <div className="postcard" key={p.url + i} onClick={() => window.open(p.url, "_blank")}>
