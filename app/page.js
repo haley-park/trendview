@@ -414,6 +414,10 @@ export default function Home() {
     return vid.data.slice().sort((a, b) => (b[f] || 0) - (a[f] || 0));
   }, [vid.data, vid.sort]);
   const sortedReels = useMemo(() => {
+    // 임베드 폴백 데이터(통계 없음)는 최신순으로 정렬
+    if (reels.data.length && reels.data.every((r) => !r.views && !r.likes)) {
+      return reels.data.slice().sort((a, b) => (b.takenAt || 0) - (a.takenAt || 0));
+    }
     if (reels.sort === "rising") return reels.data.slice().sort((a, b) => risingScore(b) - risingScore(a));
     const f = reels.sort;
     return reels.data.slice().sort((a, b) => (b[f] || 0) - (a[f] || 0));
@@ -649,11 +653,15 @@ export default function Home() {
                   </div>
                   <div className="meta">
                     <div className="title">{r.title || t.noDesc}</div>
-                    <div className="sub">
-                      <span className={reels.sort === "views" ? "views" : ""}>👁️ {fmt(r.views)}</span>
-                      <span className={reels.sort === "likes" ? "views" : ""}>❤️ {fmt(r.likes || 0)}</span>
-                      <span className={reels.sort === "comments" ? "views" : ""}>💬 {fmt(r.comments || 0)}</span>
-                    </div>
+                    {r.noStats ? (
+                      <div className="sub"><span>{timeAgo(r.takenAt)}</span></div>
+                    ) : (
+                      <div className="sub">
+                        <span className={reels.sort === "views" ? "views" : ""}>👁️ {fmt(r.views)}</span>
+                        <span className={reels.sort === "likes" ? "views" : ""}>❤️ {fmt(r.likes || 0)}</span>
+                        <span className={reels.sort === "comments" ? "views" : ""}>💬 {fmt(r.comments || 0)}</span>
+                      </div>
+                    )}
                     <div className="sub" style={{ marginTop: 3 }}><span>@{r.account}</span></div>
                   </div>
                 </div>
