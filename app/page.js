@@ -162,7 +162,7 @@ export default function Home() {
   const [reels, setReels] = useState({ data: [], stats: [], status: "loading", sort: "views" });
   const [xp, setXp] = useState({ data: [], status: "loading", sort: "likes" });
   const [th, setTh] = useState({ data: [], status: "loading", sort: "likes" });
-  const [tt, setTt] = useState({ data: [], stats: [], status: "loading", sort: "views" });
+  const [tt, setTt] = useState({ data: [], stats: [], status: "loading", sort: "views", category: "all" });
   const [xhs, setXhs] = useState({ data: [], status: "loading" });
   const [ai, setAi] = useState({ data: null, status: "loading" });
 
@@ -277,36 +277,56 @@ export default function Home() {
     }
   }, [accounts.threads]);
 
-  // ---------------- 틱톡
-  const loadTiktok = useCallback(async (force = false) => {
+  // ---------------- 틱톡 (2단계: 트렌딩 즉시 렌더 → 구독 계정 백그라운드 병합)
+  const loadTiktok = useCallback(async (force = false, categoryOverride) => {
     const n = bump("tt");
+    const cat = categoryOverride || tt.category;
     setTt((s) => ({ ...s, data: [], status: "loading" }));
     try {
-      const data = await (await fetch(
-        `/api/tiktok?accounts=${encodeURIComponent(accounts.tiktok.join(","))}&lang=${lang}${force ? "&force=1" : ""}`
+      const tr = await (await fetch(
+        `/api/tiktok?part=trending&category=${cat}&lang=${lang}${force ? "&force=1" : ""}`
       )).json();
       if (!fresh("tt", n)) return;
-      markUpdated(data.fetchedAt);
-      setTt((s) => ({
-        ...s, data: data.posts || [], stats: data.accountStats || [],
-        status: (data.posts || []).length ? "ok" : "empty",
-      }));
+      markUpdated(tr.fetchedAt);
+      const trending = tr.posts || [];
+      setTt((s) => ({ ...s, data: trending, status: trending.length ? "ok" : "empty" }));
+      // 전체 카테고리일 때만 구독 계정 영상·팔로워 통계를 이어서 병합
+      if (cat === "all") {
+        const acc = await (await fetch(
+          `/api/tiktok?part=accounts&accounts=${encodeURIComponent(accounts.tiktok.join(","))}&lang=${lang}${force ? "&force=1" : ""}`
+        )).json();
+        if (!fresh("tt", n)) return;
+        const seen = new Set(trending.map((p) => p.id));
+        const merged = trending.concat((acc.posts || []).filter((p) => !seen.has(p.id)));
+        setTt((s) => ({
+          ...s, data: merged, stats: acc.accountStats || [],
+          status: merged.length ? "ok" : "empty",
+        }));
+      }
     } catch {
       if (fresh("tt", n)) setTt((s) => ({ ...s, status: "error" }));
     }
-  }, [accounts.tiktok, lang]);
+  }, [accounts.tiktok, lang, tt.category]);
 
   // ---------------- 샤오홍슈 / AI
-  const loadXhs = useCallback(async (force = false) => {
+  const loadXhs = useCallback(async (force = false, isRetry = false) => {
     const n = bump("xhs");
     setXhs({ data: [], status: "loading" });
     try {
       const data = await (await fetch(`/api/xhs${force ? "?force=1" : ""}`)).json();
       if (!fresh("xhs", n)) return;
       markUpdated(data.fetchedAt);
-      setXhs({ data: data.hot || [], status: (data.hot || []).length ? "ok" : "empty" });
+      const hot = data.hot || [];
+      if (!hot.length && !isRetry) {
+        // 업스트림 일시 오류 대비 — 강제 갱신으로 1회 자동 재시도
+        setTimeout(() => loadXhs(true, true), 1500);
+        return;
+      }
+      setXhs({ data: hot, status: hot.length ? "ok" : "empty" });
     } catch {
-      if (fresh("xhs", n)) setXhs((s) => ({ ...s, status: "error" }));
+      if (!fresh("xhs", n)) return;
+      if (!isRetry) setTimeout(() => loadXhs(true, true), 1500);
+      else setXhs((s) => ({ ...s, status: "error" }));
     }
   }, []);
 
@@ -754,6 +774,18 @@ export default function Home() {
         {tab === "tiktok" && (
           <div className="ext-section">
             <p className="note">{t.tiktokNote}</p>
+            <div className="chips" style={{ marginBottom: 16 }}>
+              {["all", "ai", "food", "beauty", "fun", "travel", "animal"].map((c) => (
+                <button key={c} className={"chip" + (c === tt.category ? " active" : "")}
+                  onClick={() => {
+                    if (c === tt.category) return;
+                    setTt((s) => ({ ...s, category: c }));
+                    loadTiktok(false, c);
+                  }}>
+                  {t.categories[c]}
+                </button>
+              ))}
+            </div>
             <AccountManager t={t} platform="tiktok" accounts={accounts.tiktok}
               stats={tt.stats}
               onAdd={(n) => updateAccounts("tiktok", "add", n)}
